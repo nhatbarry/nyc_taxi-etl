@@ -103,7 +103,6 @@ services:
 
   postgres-data:
     image: postgres:13
-    container_name: data_db
     environment:
       POSTGRES_USER: root
       POSTGRES_PASSWORD: root
