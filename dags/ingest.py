@@ -21,11 +21,33 @@ engine = create_engine('postgresql://root:root@postgres-data/nyc_taxi_data')
 DATA_PATH = './downloads'
 LIST_CSV = os.listdir(DATA_PATH)
 
+
+import psycopg2
+
+def copy_from_csv(file_path, table_name, host, dbname, user, password):
+    conn = psycopg2.connect(
+        host=host,
+        dbname=dbname,
+        user=user,
+        password=password
+    )
+    cur = conn.cursor()
+    
+    with open(file_path, 'r') as f:
+        next(f) 
+        cur.copy_expert(f"COPY {table_name} FROM STDIN WITH CSV", f)
+    
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+
 with DAG(dag_id='ingest_data',
          default_args=default_args,
          description='',
          start_date=datetime(2025, 4, 20),
-         schedule_interval='@daily',
+         schedule_interval=None,
          catchup=False,
          tags=['']
          ):
@@ -43,13 +65,14 @@ with DAG(dag_id='ingest_data',
 
     @task
     def ingest_to_postgres():
+        i = 0
         for file in LIST_CSV:
             print(f'ingesting {file}:')
             while True:
                 try:
                         start_time = time()
                         
-                        df_iter = pd.read_csv(os.path.join(DATA_PATH, file), iterator=True, chunksize=100000)
+                        df_iter = pd.read_csv(os.path.join(DATA_PATH, file), iterator=True, chunksize=1000000, method='multi')
                         df = next(df_iter)
 
                         df.tpep_pickup_datetime = pd.to_datetime(
@@ -62,7 +85,8 @@ with DAG(dag_id='ingest_data',
                         
                         end_time = time()
                         
-                        print(f'inserted 100000 rows, took %.3f sec' % (end_time - start_time))
+                        print(f'\t{i}. inserted 1000000 rows, took %.3f sec' % (end_time - start_time))
+                        i += 1
                 except:
                         break
 
