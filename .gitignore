@@ -1,4 +1,4 @@
-plugins
+.vscode
+dags/__pycache__
 logs
-config
 venv
