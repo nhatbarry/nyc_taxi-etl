@@ -34,7 +34,7 @@ with DAG(dag_id='download',
         default_args=default_args,
         description='download and decompress csv files',
         start_date=datetime(2025, 4, 20),
-        schedule_interval='@daily',
+        schedule_interval=None,
         catchup=False,
         tags=['']
 ):

@@ -65,30 +65,22 @@ with DAG(dag_id='ingest_data',
 
     @task
     def ingest_to_postgres():
-        i = 0
         for file in LIST_CSV:
-            print(f'ingesting {file}:')
-            while True:
-                try:
-                        start_time = time()
-                        
-                        df_iter = pd.read_csv(os.path.join(DATA_PATH, file), iterator=True, chunksize=1000000, method='multi')
-                        df = next(df_iter)
+            print(f'Ingesting {file}...')
+            file_path = os.path.join(DATA_PATH, file)
+            chunk_iter = pd.read_csv(file_path, iterator=True, chunksize=1000000)
+            i = 0
+            for chunk in chunk_iter:
+                start_time = time()
+                chunk.tpep_pickup_datetime = pd.to_datetime(chunk.tpep_pickup_datetime)
+                chunk.tpep_dropoff_datetime = pd.to_datetime(chunk.tpep_dropoff_datetime)
 
-                        df.tpep_pickup_datetime = pd.to_datetime(
-                        df.tpep_pickup_datetime)
-                        df.tpep_dropoff_datetime = pd.to_datetime(
-                        df.tpep_dropoff_datetime)
+                chunk.to_sql(name='yellow_nyc_taxitrip', con=engine, if_exists='append')
+                duration = time() - start_time
+                print(f'\tInserted chunk {i} from {file}, took {duration:.2f} seconds')
+                i += 1
 
-                        df.to_sql(name='yellow_nyc_taxitrip',
-                                con=engine, if_exists='append')
-                        
-                        end_time = time()
-                        
-                        print(f'\t{i}. inserted 1000000 rows, took %.3f sec' % (end_time - start_time))
-                        i += 1
-                except:
-                        break
+                
 
     end = EmptyOperator(task_id='end')
 
