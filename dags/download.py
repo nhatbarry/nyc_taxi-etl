@@ -1,61 +1,70 @@
 from airflow import DAG
 from airflow.decorators import task
-from airflow.operators.empty import EmptyOperator
 from datetime import datetime, timedelta 
+from utils import get_url
 
 import os
 
-dag_owner = 'nhatbarry'
+DOWNLOAD_PATH = '/opt/airflow/downloads'
+yellow_taxi_data_url = get_url.get_list_yellow_url()
+green_taxi_data_url = get_url.get_list_green_url()
+fhv_data_url = get_url.get_list_fhv_url()
 
+
+dag_owner = 'nhatbarry'
 default_args = {'owner': dag_owner,
         'depends_on_past': False,
         'retries': 2,
         'retry_delay': timedelta(minutes=5)
         }
-files = [
-    'yellow_tripdata_2019-01.csv.gz'
-    , 'yellow_tripdata_2019-02.csv.gz'
-    , 'yellow_tripdata_2019-03.csv.gz'
-    , 'yellow_tripdata_2019-04.csv.gz'
-    , 'yellow_tripdata_2019-05.csv.gz'
-    , 'yellow_tripdata_2019-06.csv.gz'
-    , 'yellow_tripdata_2019-07.csv.gz'
-    , 'yellow_tripdata_2019-08.csv.gz'
-    , 'yellow_tripdata_2019-09.csv.gz'
-    , 'yellow_tripdata_2019-10.csv.gz'
-    , 'yellow_tripdata_2019-11.csv.gz'
-    , 'yellow_tripdata_2019-12.csv.gz'
-]
 
-DOWNLOAD_PATH = '/opt/airflow/downloads'
-BASE_URL = 'https://github.com/DataTalksClub/nyc-tlc-data/releases/download/yellow'
 
 with DAG(dag_id='download',
         default_args=default_args,
-        description='download and decompress csv files',
+        description='download parquet files',
         start_date=datetime(2025, 4, 20),
         schedule_interval=None,
         catchup=False,
         tags=['']
 ):
+    @task
+    def download_yellow_taxi_data(url: str):
+        file_name = url.split('/')[-1]
+        dir = os.path.join(DOWNLOAD_PATH, 'yellow_taxi_data')
+        local_path = os.path.join(dir, file_name)
+        os.system(f'mkdir -p {dir}')
+        os.system(f'curl -Lfo {local_path} {url}')
+
 
     @task
-    def download_file(filename: str):
-        url = f"{BASE_URL}/{filename}"
-        local_path = os.path.join(DOWNLOAD_PATH, filename)
-        os.system(f"mkdir -p {DOWNLOAD_PATH}")
-        os.system(f"curl -L -f -o {local_path} {url}")
-        return local_path
+    def download_green_taxi_data(url: str):
+        file_name = url.split('/')[-1]
+        dir = os.path.join(DOWNLOAD_PATH, 'green_taxi_data')
+        local_path = os.path.join(dir, file_name)
+        os.system(f'mkdir -p {dir}')
+        os.system(f'curl -Lfo {local_path} {url}')
+
 
     @task
-    def decompress_files():
-        os.system(f"gunzip -f {DOWNLOAD_PATH}/*.csv.gz")
-        
-    download_tasks = []
-    for file in files:
-        task = download_file.override(task_id=f"download_{file.replace('.', '_')}")(file)
-        download_tasks.append(task)
+    def download_fhv_data(url: str):
+        file_name = url.split('/')[-1]
+        dir = os.path.join(DOWNLOAD_PATH, 'fhv_taxi_data')
+        local_path = os.path.join(dir, file_name)
+        os.system(f'mkdir -p {dir}')
+        os.system(f'curl -Lfo {local_path} {url}')
 
-    decompress_task = decompress_files()
+    
+    yellow_taxi_task = []
+    for url in yellow_taxi_data_url:
+        task = download_yellow_taxi_data.override(task_id=f"download_{url.split('/')[-1]}")(url)
+        yellow_taxi_task.append(task)
 
-    download_tasks >> decompress_task
+    green_taxi_task = []
+    for url in green_taxi_data_url:
+        task = download_green_taxi_data.override(task_id=f"download_{url.split('/')[-1]}")(url)
+        green_taxi_task.append(task)
+
+    fhv_task = []
+    for url in fhv_data_url:
+        task = download_fhv_data.override(task_id=f"download_{url.split('/')[-1]}")(url)
+        fhv_task.append(task)
