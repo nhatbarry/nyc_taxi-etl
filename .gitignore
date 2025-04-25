@@ -3,3 +3,5 @@ dags/__pycache__
 logs
 venv
 mount
+dags/utils/__pycache__
+downloads
